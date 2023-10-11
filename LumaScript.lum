@@ -1,0 +1,4 @@
+print "hello world" 
+var string name = "Alisson"
+print name
+
