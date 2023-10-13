@@ -1,4 +1,10 @@
-print "hello world" 
-var string name = "Alisson"
+
+print("hello world") 
+
+//to declare a variable, just type the type and the name
+string name = "Alisson"
+int age = 22
 print name
 
+//var is a variable with no fixed type, and the type can change
+var test = "var is dynamic type"

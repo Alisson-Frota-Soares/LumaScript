@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"os"
@@ -17,46 +16,57 @@ type variable struct {
 
 var global_vars []variable
 
+type token struct {
+	Value     string
+	TokenType string
+}
+
 func main() {
 
 	// Inicialize a variável global com um slice vazio no início do programa
 	global_vars = make([]variable, 0)
 	//global_vars = append(global_vars, variable{Name: "Var1", Value: "Value1", type_var: "Type1"})
 
-	file, err := os.Open("LumaScript.lum")
+	file, err := os.ReadFile("LumaScript.lum")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer file.Close()
+	// defer file.Close()
+
+	tokens := tokenizer(string(file))
+
+	fmt.Println(tokens)
 
 	// read the file line by line using scanner
-	scanner := bufio.NewScanner(file)
+	// scanner := bufio.NewScanner(file)
 
-	for scanner.Scan() {
+	// for scanner.Scan() {
 
-		line_splitted := splitter(scanner.Text())
+	// 	tokens := tokenizer(scanner.Text())
 
-		executor(line_splitted)
-	}
+	// 	fmt.Println(tokens)
 
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
+	// 	executor(tokens)
+	// }
+
+	// if err := scanner.Err(); err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	//fmt.Println(global_vars)
 
 }
 
-func executor(line_splitted []string) {
+func executor(tokens []string) {
 
-	if len(line_splitted) > 0 {
+	if len(tokens) > 0 {
 
-		switch line_splitted[0] {
+		switch tokens[0] {
 		case "print":
-			print(line_splitted)
+			print(tokens)
 		case "var":
-			createVar(line_splitted)
+			createVar(tokens)
 		default:
 			fmt.Println("unexpected sintax")
 		}
@@ -105,24 +115,76 @@ func hasMultipleWords(input string) bool {
 	return len(words) > 1
 }
 
-func splitter(input string) []string {
-	// Use uma expressão regular para encontrar frases dentro de aspas
-	re := regexp.MustCompile(`"[^"]+"`)
-
-	// Substitua as frases dentro de aspas por um marcador temporário
+func tokenizer(input string) []token {
+	re := regexp.MustCompile(`"([^"\\]*(\\.[^"\\]*)*)"`)
 	tempMarker := "_temp_marker_"
 	input = re.ReplaceAllStringFunc(input, func(s string) string {
-		s = strings.Trim(s, `"`) // Remove as aspas
+		//s = strings.Trim(s, `"`)
+		s = strings.Replace(s, `\"`, `"`, -1)
 		return strings.Replace(s, " ", tempMarker, -1)
 	})
 
-	// Divida a string em palavras usando espaços
-	words := strings.Fields(input)
+	lines := strings.Split(input, "\n")
+	var tokens []token
 
-	// Restaure as frases dentro de aspas substituindo o marcador temporário por espaços
-	for i, word := range words {
-		words[i] = strings.Replace(word, tempMarker, " ", -1)
+	for _, line := range lines {
+		if strings.HasPrefix(line, "//") {
+			continue
+		}
+
+		words := strings.Fields(line)
+
+		for i, word := range words {
+			words[i] = strings.Replace(word, tempMarker, " ", -1)
+		}
+
+		for _, word := range words {
+			var tokenType string
+
+			switch {
+			case word == "print":
+				tokenType = "print"
+			case word == "string" || word == "int" || word == "var":
+				tokenType = "type"
+			case word == "=":
+				tokenType = "assignment"
+			case strings.HasPrefix(word, `"`) && strings.HasSuffix(word, `"`):
+				tokenType = "string"
+			case isInteger(word):
+				tokenType = "integer"
+			case isFloat(word):
+				tokenType = "float"
+			case isIdentifier(word):
+				tokenType = "identifier"
+			case isMathExpression(word):
+				tokenType = "math_expression"
+			case word == "(" || word == ")":
+				tokenType = "parenthesis"
+			default:
+				tokenType = "undefined"
+			}
+
+			tokens = append(tokens, token{Value: word, TokenType: tokenType})
+		}
 	}
 
-	return words
+	return tokens
+}
+
+func isInteger(s string) bool {
+	_, err := fmt.Sscanf(s, "%d")
+	return err == nil
+}
+
+func isFloat(s string) bool {
+	_, err := fmt.Sscanf(s, "%f")
+	return err == nil
+}
+
+func isIdentifier(s string) bool {
+	return regexp.MustCompile(`^[a-zA-Z_]\w*$`).MatchString(s)
+}
+
+func isMathExpression(s string) bool {
+	return regexp.MustCompile(`^[+\-*/=<>]+$`).MatchString(s)
 }
